@@ -1,7 +1,10 @@
 package com.alwaysmoveforward.subscriptionrights.data.Entities;
 
+import com.alwaysmoveforward.subscriptionrights.domainmodel.EntitlementValueType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -26,6 +29,10 @@ public class SubscriptionEntitlementEntity {
 
     @Column(name = "DisplayName", nullable = false)
     private String displayName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ValueType", nullable = false)
+    private EntitlementValueType valueType;
 
     @Column(name = "CreatedAt", nullable = false)
     private Instant createdAt;
@@ -63,6 +70,14 @@ public class SubscriptionEntitlementEntity {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    public EntitlementValueType getValueType() {
+        return valueType;
+    }
+
+    public void setValueType(EntitlementValueType valueType) {
+        this.valueType = valueType;
     }
 
     public Instant getCreatedAt() {

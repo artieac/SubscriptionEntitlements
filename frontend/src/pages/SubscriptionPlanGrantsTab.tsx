@@ -19,6 +19,45 @@ function valuesForVersion(grants: SubscriptionPlanGrantDto[], version: number): 
   );
 }
 
+/** The editable control for one entitlement's grant value, shaped by its valueType. */
+function renderValueInput(
+  entitlement: SubscriptionEntitlementDto,
+  value: number | "",
+  onChange: (rawValue: string) => void,
+) {
+  if (entitlement.valueType === "BOOLEAN") {
+    return <input type="checkbox" checked={value === 1} onChange={(e) => onChange(e.target.checked ? "1" : "")} />;
+  }
+  if (entitlement.valueType === "ORDINAL") {
+    return (
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Not granted</option>
+        {entitlement.levels.map((level) => (
+          <option key={level.ordinal} value={level.ordinal}>
+            {level.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  return <input type="number" value={value} placeholder="Not granted" onChange={(e) => onChange(e.target.value)} />;
+}
+
+/** The read-only rendering of one entitlement's grant value, shaped by its valueType. */
+function renderValueDisplay(entitlement: SubscriptionEntitlementDto, value: number | "") {
+  if (value === "") {
+    return <em>Not granted</em>;
+  }
+  if (entitlement.valueType === "BOOLEAN") {
+    return value === 1 ? "Yes" : "No";
+  }
+  if (entitlement.valueType === "ORDINAL") {
+    const level = entitlement.levels.find((l) => l.ordinal === value);
+    return level ? level.label : value;
+  }
+  return value;
+}
+
 export function SubscriptionPlanGrantsTab() {
   const { applicationId } = useOutletContext<{ applicationId: number }>();
   const { user } = useAuth();
@@ -243,14 +282,9 @@ export function SubscriptionPlanGrantsTab() {
                     <td>{entitlement.displayName}</td>
                     <td>
                       {canEdit ? (
-                        <input
-                          type="number"
-                          value={value}
-                          placeholder="Not granted"
-                          onChange={(e) => handleValueChange(entitlement.id, e.target.value)}
-                        />
+                        renderValueInput(entitlement, value, (rawValue) => handleValueChange(entitlement.id, rawValue))
                       ) : (
-                        value || <em>Not granted</em>
+                        renderValueDisplay(entitlement, value)
                       )}
                     </td>
                   </tr>

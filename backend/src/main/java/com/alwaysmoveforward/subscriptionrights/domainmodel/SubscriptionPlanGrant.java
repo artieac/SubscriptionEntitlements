@@ -50,6 +50,7 @@ public class SubscriptionPlanGrant {
                             + ") to plan '" + plan.getName() + "' (application " + plan.getApplicationId()
                             + ") -- they belong to different applications");
         }
+        entitlement.validateValue(value);
         return new SubscriptionPlanGrant(null, plan.getApplicationId(), plan.getId(), plan.getVersion(),
                 entitlement.getId(), value, Instant.now());
     }
