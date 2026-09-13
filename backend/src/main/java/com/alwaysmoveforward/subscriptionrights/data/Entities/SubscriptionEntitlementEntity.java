@@ -34,6 +34,9 @@ public class SubscriptionEntitlementEntity {
     @Column(name = "ValueType", nullable = false)
     private EntitlementValueType valueType;
 
+    @Column(name = "DefaultValue", nullable = false)
+    private int defaultValue;
+
     @Column(name = "CreatedAt", nullable = false)
     private Instant createdAt;
 
@@ -78,6 +81,14 @@ public class SubscriptionEntitlementEntity {
 
     public void setValueType(EntitlementValueType valueType) {
         this.valueType = valueType;
+    }
+
+    public int getDefaultValue() {
+        return defaultValue;
+    }
+
+    public void setDefaultValue(int defaultValue) {
+        this.defaultValue = defaultValue;
     }
 
     public Instant getCreatedAt() {

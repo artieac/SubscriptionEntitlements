@@ -5,10 +5,14 @@ import type {
 } from "../models/SubscriptionPlanGrantDto";
 
 export const SubscriptionPlanGrantRepository = {
-  async list(applicationId: number, subscriptionPlanId?: number): Promise<SubscriptionPlanGrantDto[]> {
+  async list(
+    applicationId: number,
+    subscriptionPlanId?: number,
+    excludeDefaults?: boolean,
+  ): Promise<SubscriptionPlanGrantDto[]> {
     const response = await RestClient.get<SubscriptionPlanGrantDto[]>(
       `/api/applications/${applicationId}/subscription-plan-grants`,
-      { params: subscriptionPlanId ? { subscriptionPlanId } : undefined },
+      { params: { subscriptionPlanId, excludeDefaults } },
     );
     return response.data;
   },

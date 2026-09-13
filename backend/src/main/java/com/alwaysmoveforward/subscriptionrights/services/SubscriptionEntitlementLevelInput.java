@@ -5,5 +5,5 @@ package com.alwaysmoveforward.subscriptionrights.services;
  * request level DTOs into these before calling SubscriptionEntitlementService, which is
  * responsible for turning them into validated SubscriptionEntitlementLevel domain objects.
  */
-public record SubscriptionEntitlementLevelInput(int ordinal, String label) {
+public record SubscriptionEntitlementLevelInput(int ordinal, String name, String displayName) {
 }

@@ -25,7 +25,8 @@ public class SubscriptionEntitlementMapper {
                 .map(this::toLevelDomainModel)
                 .toList();
         return SubscriptionEntitlement.reconstitute(entity.getId(), entity.getApplicationId(), entity.getName(),
-                entity.getDisplayName(), entity.getValueType(), levels, entity.getCreatedAt(), entity.getUpdatedAt());
+                entity.getDisplayName(), entity.getValueType(), levels, entity.getDefaultValue(), entity.getCreatedAt(),
+                entity.getUpdatedAt());
     }
 
     public SubscriptionEntitlementEntity toEntity(SubscriptionEntitlement domainModel) {
@@ -35,6 +36,7 @@ public class SubscriptionEntitlementMapper {
         entity.setName(domainModel.getName());
         entity.setDisplayName(domainModel.getDisplayName());
         entity.setValueType(domainModel.getValueType());
+        entity.setDefaultValue(domainModel.getDefaultValue());
         entity.setCreatedAt(domainModel.getCreatedAt());
         entity.setUpdatedAt(domainModel.getUpdatedAt());
         return entity;
@@ -45,12 +47,13 @@ public class SubscriptionEntitlementMapper {
             SubscriptionEntitlementLevelEntity entity = new SubscriptionEntitlementLevelEntity();
             entity.setSubscriptionEntitlementId(subscriptionEntitlementId);
             entity.setOrdinal(level.getOrdinal());
-            entity.setLabel(level.getLabel());
+            entity.setName(level.getName());
+            entity.setDisplayName(level.getDisplayName());
             return entity;
         }).toList();
     }
 
     private SubscriptionEntitlementLevel toLevelDomainModel(SubscriptionEntitlementLevelEntity entity) {
-        return SubscriptionEntitlementLevel.of(entity.getOrdinal(), entity.getLabel());
+        return SubscriptionEntitlementLevel.of(entity.getOrdinal(), entity.getName(), entity.getDisplayName());
     }
 }

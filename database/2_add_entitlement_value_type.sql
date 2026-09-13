@@ -20,7 +20,7 @@
 -- run it manually.
 -- =============================================================================
 
-USE subscriptionrights;
+USE subscriptionentitlements;
 
 ALTER TABLE SubscriptionEntitlements ADD COLUMN ValueType VARCHAR(20) NULL AFTER DisplayName;
 

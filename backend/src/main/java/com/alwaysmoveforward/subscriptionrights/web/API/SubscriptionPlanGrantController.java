@@ -1,5 +1,8 @@
 package com.alwaysmoveforward.subscriptionrights.web.API;
 
+import com.alwaysmoveforward.subscriptionrights.domainmodel.SubscriptionEntitlement;
+import com.alwaysmoveforward.subscriptionrights.domainmodel.SubscriptionPlanGrant;
+import com.alwaysmoveforward.subscriptionrights.services.SubscriptionEntitlementService;
 import com.alwaysmoveforward.subscriptionrights.services.SubscriptionPlanGrantService;
 import com.alwaysmoveforward.subscriptionrights.web.Models.SubscriptionPlanGrantRequest;
 import com.alwaysmoveforward.subscriptionrights.web.Models.SubscriptionPlanGrantViewModel;
@@ -15,17 +18,31 @@ import java.util.List;
 public class SubscriptionPlanGrantController {
 
     private final SubscriptionPlanGrantService subscriptionPlanGrantService;
+    private final SubscriptionEntitlementService subscriptionEntitlementService;
 
-    public SubscriptionPlanGrantController(SubscriptionPlanGrantService subscriptionPlanGrantService) {
+    public SubscriptionPlanGrantController(SubscriptionPlanGrantService subscriptionPlanGrantService,
+                                            SubscriptionEntitlementService subscriptionEntitlementService) {
         this.subscriptionPlanGrantService = subscriptionPlanGrantService;
+        this.subscriptionEntitlementService = subscriptionEntitlementService;
     }
 
+    /**
+     * @param excludeDefaults true returns only grants that were actually created; false (the
+     *                         default) also synthesizes one defaulted=true entry per entitlement
+     *                         missing a grant at a (plan, version) pair otherwise present in the
+     *                         results -- see {@link SubscriptionPlanGrantViewModel#listIncludingDefaults}.
+     */
     @GetMapping
     @PreAuthorize("hasRole('USER')")
     public List<SubscriptionPlanGrantViewModel> list(@PathVariable Long applicationId,
-                                                       @RequestParam(required = false) Long subscriptionPlanId) {
-        return subscriptionPlanGrantService.listForApplication(applicationId, subscriptionPlanId).stream()
-                .map(SubscriptionPlanGrantViewModel::from).toList();
+                                                       @RequestParam(required = false) Long subscriptionPlanId,
+                                                       @RequestParam(required = false, defaultValue = "false") boolean excludeDefaults) {
+        List<SubscriptionPlanGrant> grants = subscriptionPlanGrantService.listForApplication(applicationId, subscriptionPlanId);
+        if (excludeDefaults) {
+            return grants.stream().map(SubscriptionPlanGrantViewModel::from).toList();
+        }
+        List<SubscriptionEntitlement> entitlements = subscriptionEntitlementService.listForApplication(applicationId);
+        return SubscriptionPlanGrantViewModel.listIncludingDefaults(applicationId, grants, entitlements);
     }
 
     @GetMapping("/{id}")

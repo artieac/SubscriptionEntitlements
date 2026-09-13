@@ -105,17 +105,9 @@ function formatGrantValue(entitlement: SubscriptionEntitlementDto, value: number
   }
   if (entitlement.valueType === "ORDINAL") {
     const level = entitlement.levels.find((l) => l.ordinal === value);
-    return level ? level.label : String(value);
+    return level ? level.displayName : String(value);
   }
   return String(value);
-}
-
-/** The implicit value for an entitlement that isn't granted on a plan version: 0 for booleans/numerics, the lowest ordinal for ordinals. */
-function defaultGrantValue(entitlement: SubscriptionEntitlementDto): number {
-  if (entitlement.valueType === "ORDINAL" && entitlement.levels.length > 0) {
-    return entitlement.levels.reduce((lowest, level) => (level.ordinal < lowest ? level.ordinal : lowest), entitlement.levels[0].ordinal);
-  }
-  return 0;
 }
 
 function PlanVersionGrantsModal({
@@ -169,14 +161,14 @@ function PlanVersionGrantsModal({
             ) : (
               entitlements.map((entitlement) => {
                 const grant = grantByEntitlementId.get(entitlement.id);
-                const value = grant ? grant.value : defaultGrantValue(entitlement);
+                const value = grant ? grant.value : entitlement.defaultValue;
                 return (
                   <tr key={entitlement.id}>
                     <td>{entitlement.displayName}</td>
                     <td>{ENTITLEMENT_TYPE_LABELS[entitlement.valueType]}</td>
                     <td>
                       {formatGrantValue(entitlement, value)}
-                      {!grant && <em> (defaulted, not explicitly set)</em>}
+                      {(!grant || grant.defaulted) && <em> (defaulted, not explicitly set)</em>}
                     </td>
                   </tr>
                 );

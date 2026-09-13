@@ -99,7 +99,7 @@ class SubscriptionPlanGrantServiceTest {
         Long applicationId = seedApplication();
         SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
         SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
-                SubscriptionEntitlement.create(applicationId, "api-calls", "API Calls", EntitlementValueType.NUMERIC, List.of()));
+                SubscriptionEntitlement.create(applicationId, "api-calls", "API Calls", EntitlementValueType.NUMERIC, List.of(), 0));
         entityManager.flush();
         entityManager.clear();
 
@@ -134,7 +134,7 @@ class SubscriptionPlanGrantServiceTest {
         Long applicationId = seedApplication();
         SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
         SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
-                SubscriptionEntitlement.create(applicationId, "api-calls", "API Calls", EntitlementValueType.NUMERIC, List.of()));
+                SubscriptionEntitlement.create(applicationId, "api-calls", "API Calls", EntitlementValueType.NUMERIC, List.of(), 0));
         entityManager.flush();
         entityManager.clear();
 
@@ -170,7 +170,7 @@ class SubscriptionPlanGrantServiceTest {
         Long applicationId = seedApplication();
         SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
         SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
-                SubscriptionEntitlement.create(applicationId, "api-calls", "API Calls", EntitlementValueType.NUMERIC, List.of()));
+                SubscriptionEntitlement.create(applicationId, "api-calls", "API Calls", EntitlementValueType.NUMERIC, List.of(), 0));
         entityManager.flush();
         entityManager.clear();
 
@@ -195,7 +195,7 @@ class SubscriptionPlanGrantServiceTest {
         Long applicationId = seedApplication();
         SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
         SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
-                SubscriptionEntitlement.create(applicationId, "dark-mode", "Dark Mode", EntitlementValueType.BOOLEAN, List.of()));
+                SubscriptionEntitlement.create(applicationId, "dark-mode", "Dark Mode", EntitlementValueType.BOOLEAN, List.of(), 0));
         entityManager.flush();
         entityManager.clear();
 
@@ -215,7 +215,7 @@ class SubscriptionPlanGrantServiceTest {
         Long applicationId = seedApplication();
         SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
         SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
-                SubscriptionEntitlement.create(applicationId, "dark-mode", "Dark Mode", EntitlementValueType.BOOLEAN, List.of()));
+                SubscriptionEntitlement.create(applicationId, "dark-mode", "Dark Mode", EntitlementValueType.BOOLEAN, List.of(), 0));
         entityManager.flush();
         entityManager.clear();
 
@@ -239,8 +239,8 @@ class SubscriptionPlanGrantServiceTest {
         SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
         SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
                 SubscriptionEntitlement.create(applicationId, "automation-level", "Automation Level", EntitlementValueType.ORDINAL,
-                        List.of(SubscriptionEntitlementLevel.of(0, "None"), SubscriptionEntitlementLevel.of(1, "Manual"),
-                                SubscriptionEntitlementLevel.of(2, "Automated"))));
+                        List.of(SubscriptionEntitlementLevel.of(0, "NONE", "None"), SubscriptionEntitlementLevel.of(1, "MANUAL", "Manual"),
+                                SubscriptionEntitlementLevel.of(2, "AUTOMATED", "Automated")), 0));
         entityManager.flush();
         entityManager.clear();
 
@@ -261,8 +261,8 @@ class SubscriptionPlanGrantServiceTest {
         SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
         SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
                 SubscriptionEntitlement.create(applicationId, "automation-level", "Automation Level", EntitlementValueType.ORDINAL,
-                        List.of(SubscriptionEntitlementLevel.of(0, "None"), SubscriptionEntitlementLevel.of(1, "Manual"),
-                                SubscriptionEntitlementLevel.of(2, "Automated"))));
+                        List.of(SubscriptionEntitlementLevel.of(0, "NONE", "None"), SubscriptionEntitlementLevel.of(1, "MANUAL", "Manual"),
+                                SubscriptionEntitlementLevel.of(2, "AUTOMATED", "Automated")), 0));
         entityManager.flush();
         entityManager.clear();
 

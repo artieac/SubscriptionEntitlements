@@ -25,27 +25,38 @@ public class SubscriptionEntitlement {
     private String displayName;
     private EntitlementValueType valueType;
     private List<SubscriptionEntitlementLevel> levels;
+    private int defaultValue;
     private final Instant createdAt;
     private Instant updatedAt;
 
     private SubscriptionEntitlement(Long id, Long applicationId, String name, String displayName,
                                      EntitlementValueType valueType, List<SubscriptionEntitlementLevel> levels,
-                                     Instant createdAt, Instant updatedAt) {
+                                     int defaultValue, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.applicationId = applicationId;
         this.name = name;
         this.displayName = displayName;
         this.valueType = valueType;
         this.levels = levels;
+        this.defaultValue = defaultValue;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
 
+    /**
+     * @param defaultValue the value an ungranted plan version should be treated as carrying for
+     *                      this entitlement -- must fit valueType/levels the same way any other
+     *                      grant value must (see {@link #validateValue}).
+     */
     public static SubscriptionEntitlement create(Long applicationId, String name, String displayName,
-                                                  EntitlementValueType valueType, List<SubscriptionEntitlementLevel> levels) {
+                                                  EntitlementValueType valueType, List<SubscriptionEntitlementLevel> levels,
+                                                  int defaultValue) {
         Instant now = Instant.now();
+        EntitlementValueType validValueType = requireValueType(valueType);
+        List<SubscriptionEntitlementLevel> validLevels = requireValidLevels(validValueType, levels);
+        requireValidValue(validValueType, validLevels, name, defaultValue);
         return new SubscriptionEntitlement(null, requireApplicationId(applicationId), requireName(name),
-                requireDisplayName(displayName), requireValueType(valueType), requireValidLevels(valueType, levels), now, now);
+                requireDisplayName(displayName), validValueType, validLevels, defaultValue, now, now);
     }
 
     /**
@@ -53,9 +64,9 @@ public class SubscriptionEntitlement {
      */
     public static SubscriptionEntitlement reconstitute(Long id, Long applicationId, String name, String displayName,
                                                         EntitlementValueType valueType, List<SubscriptionEntitlementLevel> levels,
-                                                        Instant createdAt, Instant updatedAt) {
+                                                        int defaultValue, Instant createdAt, Instant updatedAt) {
         return new SubscriptionEntitlement(id, applicationId, name, displayName, valueType, new ArrayList<>(levels),
-                createdAt, updatedAt);
+                defaultValue, createdAt, updatedAt);
     }
 
     public void rename(String newName) {
@@ -68,9 +79,17 @@ public class SubscriptionEntitlement {
         this.updatedAt = Instant.now();
     }
 
-    public void redefineValueType(EntitlementValueType newValueType, List<SubscriptionEntitlementLevel> newLevels) {
-        this.valueType = requireValueType(newValueType);
-        this.levels = requireValidLevels(newValueType, newLevels);
+    /**
+     * @param newDefaultValue must fit newValueType/newLevels, the same way any other grant value must.
+     */
+    public void redefineValueType(EntitlementValueType newValueType, List<SubscriptionEntitlementLevel> newLevels,
+                                   int newDefaultValue) {
+        EntitlementValueType validValueType = requireValueType(newValueType);
+        List<SubscriptionEntitlementLevel> validLevels = requireValidLevels(validValueType, newLevels);
+        requireValidValue(validValueType, validLevels, name, newDefaultValue);
+        this.valueType = validValueType;
+        this.levels = validLevels;
+        this.defaultValue = newDefaultValue;
         this.updatedAt = Instant.now();
     }
 
@@ -81,6 +100,11 @@ public class SubscriptionEntitlement {
      * callers already use.
      */
     public void validateValue(int value) {
+        requireValidValue(valueType, levels, name, value);
+    }
+
+    private static void requireValidValue(EntitlementValueType valueType, List<SubscriptionEntitlementLevel> levels,
+                                           String name, int value) {
         switch (valueType) {
             case BOOLEAN -> {
                 if (value != 0 && value != 1) {
@@ -144,10 +168,15 @@ public class SubscriptionEntitlement {
             throw new DomainException("An ORDINAL entitlement requires at least one level");
         }
         Set<Integer> seenOrdinals = new HashSet<>();
+        Set<String> seenNames = new HashSet<>();
         for (SubscriptionEntitlementLevel level : levels) {
             if (!seenOrdinals.add(level.getOrdinal())) {
                 throw new DomainException("SubscriptionEntitlement cannot assign ordinal " + level.getOrdinal()
                         + " to more than one level");
+            }
+            if (!seenNames.add(level.getName())) {
+                throw new DomainException("SubscriptionEntitlement cannot assign name '" + level.getName()
+                        + "' to more than one level");
             }
         }
         return new ArrayList<>(levels);
@@ -175,6 +204,11 @@ public class SubscriptionEntitlement {
 
     public List<SubscriptionEntitlementLevel> getLevels() {
         return Collections.unmodifiableList(levels);
+    }
+
+    /** The value an ungranted plan version should be treated as carrying for this entitlement. */
+    public int getDefaultValue() {
+        return defaultValue;
     }
 
     public Instant getCreatedAt() {

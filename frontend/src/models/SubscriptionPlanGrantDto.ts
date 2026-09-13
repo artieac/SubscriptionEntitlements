@@ -1,11 +1,12 @@
 export interface SubscriptionPlanGrantDto {
-  id: number;
+  id: number | null;
   applicationId: number;
   subscriptionPlanId: number;
   subscriptionPlanVersion: number;
   subscriptionEntitlementId: number;
   value: number;
-  createdAt: string;
+  defaulted: boolean;
+  createdAt: string | null;
 }
 
 export interface SubscriptionPlanGrantRequest {

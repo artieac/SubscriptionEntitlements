@@ -1,6 +1,9 @@
 package com.alwaysmoveforward.subscriptionrights.web.API;
 
+import com.alwaysmoveforward.subscriptionrights.domainmodel.SubscriptionEntitlement;
+import com.alwaysmoveforward.subscriptionrights.domainmodel.SubscriptionPlanGrant;
 import com.alwaysmoveforward.subscriptionrights.services.ApplicationService;
+import com.alwaysmoveforward.subscriptionrights.services.SubscriptionEntitlementService;
 import com.alwaysmoveforward.subscriptionrights.services.SubscriptionPlanGrantService;
 import com.alwaysmoveforward.subscriptionrights.web.Models.SubscriptionPlanGrantViewModel;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,20 +26,34 @@ public class ExternalSubscriptionPlanGrantController {
 
     private final ApplicationService applicationService;
     private final SubscriptionPlanGrantService subscriptionPlanGrantService;
+    private final SubscriptionEntitlementService subscriptionEntitlementService;
 
     public ExternalSubscriptionPlanGrantController(ApplicationService applicationService,
-                                                     SubscriptionPlanGrantService subscriptionPlanGrantService) {
+                                                     SubscriptionPlanGrantService subscriptionPlanGrantService,
+                                                     SubscriptionEntitlementService subscriptionEntitlementService) {
         this.applicationService = applicationService;
         this.subscriptionPlanGrantService = subscriptionPlanGrantService;
+        this.subscriptionEntitlementService = subscriptionEntitlementService;
     }
 
+    /**
+     * @param excludeDefaults true returns only grants that were actually created; false (the
+     *                         default) also synthesizes one defaulted=true entry per entitlement
+     *                         missing a grant at a (plan, version) pair otherwise present in the
+     *                         results -- see {@link SubscriptionPlanGrantViewModel#listIncludingDefaults}.
+     */
     @GetMapping
     @PreAuthorize("@externalApiTokenAccessGuard.canAccess(#externalId)")
     public List<SubscriptionPlanGrantViewModel> list(@PathVariable String externalId,
-                                                       @RequestParam(required = false) Long subscriptionPlanId) {
+                                                       @RequestParam(required = false) Long subscriptionPlanId,
+                                                       @RequestParam(required = false, defaultValue = "false") boolean excludeDefaults) {
         Long applicationId = applicationService.getApplicationByExternalId(externalId).getId();
-        return subscriptionPlanGrantService.listForApplication(applicationId, subscriptionPlanId).stream()
-                .map(SubscriptionPlanGrantViewModel::from).toList();
+        List<SubscriptionPlanGrant> grants = subscriptionPlanGrantService.listForApplication(applicationId, subscriptionPlanId);
+        if (excludeDefaults) {
+            return grants.stream().map(SubscriptionPlanGrantViewModel::from).toList();
+        }
+        List<SubscriptionEntitlement> entitlements = subscriptionEntitlementService.listForApplication(applicationId);
+        return SubscriptionPlanGrantViewModel.listIncludingDefaults(applicationId, grants, entitlements);
     }
 
     @GetMapping("/{id}")

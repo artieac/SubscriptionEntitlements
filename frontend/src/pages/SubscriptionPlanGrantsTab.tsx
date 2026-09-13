@@ -29,18 +29,26 @@ function renderValueInput(
     return <input type="checkbox" checked={value === 1} onChange={(e) => onChange(e.target.checked ? "1" : "")} />;
   }
   if (entitlement.valueType === "ORDINAL") {
+    const defaultLevel = entitlement.levels.find((level) => level.ordinal === entitlement.defaultValue);
     return (
       <select value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Not granted</option>
+        <option value="">Not granted (defaults to {defaultLevel ? defaultLevel.displayName : entitlement.defaultValue})</option>
         {entitlement.levels.map((level) => (
           <option key={level.ordinal} value={level.ordinal}>
-            {level.label}
+            {level.displayName}
           </option>
         ))}
       </select>
     );
   }
-  return <input type="number" value={value} placeholder="Not granted" onChange={(e) => onChange(e.target.value)} />;
+  return (
+    <input
+      type="number"
+      value={value}
+      placeholder={`Not granted (defaults to ${entitlement.defaultValue})`}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
 }
 
 /** The read-only rendering of one entitlement's grant value, shaped by its valueType. */
@@ -53,7 +61,7 @@ function renderValueDisplay(entitlement: SubscriptionEntitlementDto, value: numb
   }
   if (entitlement.valueType === "ORDINAL") {
     const level = entitlement.levels.find((l) => l.ordinal === value);
-    return level ? level.label : value;
+    return level ? level.displayName : value;
   }
   return value;
 }
@@ -101,9 +109,12 @@ export function SubscriptionPlanGrantsTab() {
     setLoadingGrants(true);
     setError(null);
     try {
+      // excludeDefaults=true: this view edits explicit grants only -- "not granted" (an empty
+      // draft entry) must round-trip to "no explicit grant", not to a synthesized default that
+      // handleSave would then persist as if it had been explicitly set.
       const [versionList, grantList] = await Promise.all([
         SubscriptionPlanRepository.getVersions(applicationId, planId),
-        SubscriptionPlanGrantRepository.list(applicationId, planId),
+        SubscriptionPlanGrantRepository.list(applicationId, planId, true),
       ]);
       setVersions(versionList);
       setGrantsForPlan(grantList);

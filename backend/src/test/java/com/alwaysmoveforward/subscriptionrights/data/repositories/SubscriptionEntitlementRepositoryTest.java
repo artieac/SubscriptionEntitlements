@@ -62,7 +62,7 @@ class SubscriptionEntitlementRepositoryTest {
 
         SubscriptionEntitlement created = SubscriptionEntitlement.create(applicationId, "automation-level",
                 "Automation Level", EntitlementValueType.ORDINAL,
-                List.of(SubscriptionEntitlementLevel.of(0, "None"), SubscriptionEntitlementLevel.of(1, "Manual")));
+                List.of(SubscriptionEntitlementLevel.of(0, "NONE", "None"), SubscriptionEntitlementLevel.of(1, "MANUAL", "Manual")), 0);
         SubscriptionEntitlement saved = repository.save(created);
         entityManager.flush();
         entityManager.clear();
@@ -76,16 +76,16 @@ class SubscriptionEntitlementRepositoryTest {
         // constraint violation.
         SubscriptionEntitlement reloaded = repository.findById(saved.getId()).orElseThrow();
         reloaded.redefineValueType(EntitlementValueType.ORDINAL, List.of(
-                SubscriptionEntitlementLevel.of(0, "None"),
-                SubscriptionEntitlementLevel.of(1, "Automated"),
-                SubscriptionEntitlementLevel.of(2, "AI Automated")));
+                SubscriptionEntitlementLevel.of(0, "NONE", "None"),
+                SubscriptionEntitlementLevel.of(1, "AUTOMATED", "Automated"),
+                SubscriptionEntitlementLevel.of(2, "AI_AUTOMATED", "AI Automated")), 0);
         SubscriptionEntitlement updated = repository.save(reloaded);
         entityManager.flush();
         entityManager.clear();
 
         assertThat(updated.getLevels()).hasSize(3);
         SubscriptionEntitlement reloadedAgain = repository.findById(saved.getId()).orElseThrow();
-        assertThat(reloadedAgain.getLevels()).extracting(SubscriptionEntitlementLevel::getLabel)
+        assertThat(reloadedAgain.getLevels()).extracting(SubscriptionEntitlementLevel::getDisplayName)
                 .containsExactlyInAnyOrder("None", "Automated", "AI Automated");
     }
 
@@ -95,13 +95,13 @@ class SubscriptionEntitlementRepositoryTest {
         Long applicationId = seedApplication();
 
         SubscriptionEntitlement created = SubscriptionEntitlement.create(applicationId, "automation-level",
-                "Automation Level", EntitlementValueType.ORDINAL, List.of(SubscriptionEntitlementLevel.of(0, "None")));
+                "Automation Level", EntitlementValueType.ORDINAL, List.of(SubscriptionEntitlementLevel.of(0, "NONE", "None")), 0);
         SubscriptionEntitlement saved = repository.save(created);
         entityManager.flush();
         entityManager.clear();
 
         SubscriptionEntitlement reloaded = repository.findById(saved.getId()).orElseThrow();
-        reloaded.redefineValueType(EntitlementValueType.NUMERIC, List.of());
+        reloaded.redefineValueType(EntitlementValueType.NUMERIC, List.of(), 0);
         SubscriptionEntitlement updated = repository.save(reloaded);
         entityManager.flush();
         entityManager.clear();
@@ -116,7 +116,7 @@ class SubscriptionEntitlementRepositoryTest {
         Long applicationId = seedApplication();
 
         SubscriptionEntitlement created = SubscriptionEntitlement.create(applicationId, "automation-level",
-                "Automation Level", EntitlementValueType.ORDINAL, List.of(SubscriptionEntitlementLevel.of(0, "None")));
+                "Automation Level", EntitlementValueType.ORDINAL, List.of(SubscriptionEntitlementLevel.of(0, "NONE", "None")), 0);
         SubscriptionEntitlement saved = repository.save(created);
         entityManager.flush();
         entityManager.clear();

@@ -5,22 +5,28 @@ import com.alwaysmoveforward.subscriptionrights.domainmodel.SubscriptionEntitlem
 public class SubscriptionEntitlementLevelViewModel {
 
     private final int ordinal;
-    private final String label;
+    private final String name;
+    private final String displayName;
 
-    public SubscriptionEntitlementLevelViewModel(int ordinal, String label) {
+    public SubscriptionEntitlementLevelViewModel(int ordinal, String name, String displayName) {
         this.ordinal = ordinal;
-        this.label = label;
+        this.name = name;
+        this.displayName = displayName;
     }
 
     public static SubscriptionEntitlementLevelViewModel from(SubscriptionEntitlementLevel level) {
-        return new SubscriptionEntitlementLevelViewModel(level.getOrdinal(), level.getLabel());
+        return new SubscriptionEntitlementLevelViewModel(level.getOrdinal(), level.getName(), level.getDisplayName());
     }
 
     public int getOrdinal() {
         return ordinal;
     }
 
-    public String getLabel() {
-        return label;
+    public String getName() {
+        return name;
+    }
+
+    public String getDisplayName() {
+        return displayName;
     }
 }
