@@ -135,9 +135,12 @@ function ViewGrantsModal({
                 </tr>
               ) : (
                 grantsForSelectedVersion.map((grant) => (
-                  <tr key={grant.id}>
+                  <tr key={grant.id ?? `default-${grant.subscriptionEntitlementId}`}>
                     <td>{entitlementById.get(grant.subscriptionEntitlementId)?.displayName ?? grant.subscriptionEntitlementId}</td>
-                    <td>{grant.value}</td>
+                    <td>
+                      {grant.value}
+                      {grant.defaulted && <em> (defaulted, not explicitly set)</em>}
+                    </td>
                   </tr>
                 ))
               )}

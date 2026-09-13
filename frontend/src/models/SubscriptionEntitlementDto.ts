@@ -2,7 +2,8 @@ export type EntitlementValueType = "BOOLEAN" | "NUMERIC" | "ORDINAL";
 
 export interface SubscriptionEntitlementLevelDto {
   ordinal: number;
-  label: string;
+  name: string;
+  displayName: string;
 }
 
 export interface SubscriptionEntitlementDto {
@@ -12,6 +13,7 @@ export interface SubscriptionEntitlementDto {
   displayName: string;
   valueType: EntitlementValueType;
   levels: SubscriptionEntitlementLevelDto[];
+  defaultValue: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,4 +23,5 @@ export interface SubscriptionEntitlementRequest {
   displayName: string;
   valueType: EntitlementValueType;
   levels: SubscriptionEntitlementLevelDto[];
+  defaultValue: number;
 }

@@ -20,7 +20,9 @@ import jakarta.persistence.UniqueConstraint;
 @Entity
 @Table(name = "SubscriptionEntitlementLevels", uniqueConstraints = {
         @UniqueConstraint(name = "UQ_SubscriptionEntitlementLevels_Entitlement_Ordinal",
-                columnNames = {"SubscriptionEntitlementId", "Ordinal"})
+                columnNames = {"SubscriptionEntitlementId", "Ordinal"}),
+        @UniqueConstraint(name = "UQ_SubscriptionEntitlementLevels_Entitlement_Name",
+                columnNames = {"SubscriptionEntitlementId", "Name"})
 })
 public class SubscriptionEntitlementLevelEntity {
 
@@ -35,8 +37,11 @@ public class SubscriptionEntitlementLevelEntity {
     @Column(name = "Ordinal", nullable = false)
     private Integer ordinal;
 
-    @Column(name = "Label", nullable = false)
-    private String label;
+    @Column(name = "Name", nullable = false)
+    private String name;
+
+    @Column(name = "DisplayName", nullable = false)
+    private String displayName;
 
     public Long getId() {
         return id;
@@ -62,11 +67,19 @@ public class SubscriptionEntitlementLevelEntity {
         this.ordinal = ordinal;
     }
 
-    public String getLabel() {
-        return label;
+    public String getName() {
+        return name;
     }
 
-    public void setLabel(String label) {
-        this.label = label;
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 }

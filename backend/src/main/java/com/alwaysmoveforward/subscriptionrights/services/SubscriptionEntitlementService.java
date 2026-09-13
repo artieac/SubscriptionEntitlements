@@ -38,23 +38,25 @@ public class SubscriptionEntitlementService {
 
     @Transactional
     public SubscriptionEntitlement createEntitlement(Long applicationId, String name, String displayName,
-                                                       String valueType, List<SubscriptionEntitlementLevelInput> levelInputs) {
+                                                       String valueType, List<SubscriptionEntitlementLevelInput> levelInputs,
+                                                       int defaultValue) {
         requireApplication(applicationId);
         EntitlementValueType parsedValueType = parseValueType(valueType);
         List<SubscriptionEntitlementLevel> levels = resolveLevels(levelInputs);
         return subscriptionEntitlementRepository.save(
-                SubscriptionEntitlement.create(applicationId, name, displayName, parsedValueType, levels));
+                SubscriptionEntitlement.create(applicationId, name, displayName, parsedValueType, levels, defaultValue));
     }
 
     @Transactional
     public SubscriptionEntitlement updateEntitlement(Long applicationId, Long entitlementId, String name, String displayName,
-                                                       String valueType, List<SubscriptionEntitlementLevelInput> levelInputs) {
+                                                       String valueType, List<SubscriptionEntitlementLevelInput> levelInputs,
+                                                       int defaultValue) {
         SubscriptionEntitlement entitlement = getEntitlement(applicationId, entitlementId);
         EntitlementValueType parsedValueType = parseValueType(valueType);
         List<SubscriptionEntitlementLevel> levels = resolveLevels(levelInputs);
         entitlement.rename(name);
         entitlement.updateDisplayName(displayName);
-        entitlement.redefineValueType(parsedValueType, levels);
+        entitlement.redefineValueType(parsedValueType, levels, defaultValue);
         return subscriptionEntitlementRepository.save(entitlement);
     }
 
@@ -74,7 +76,7 @@ public class SubscriptionEntitlementService {
 
     private List<SubscriptionEntitlementLevel> resolveLevels(List<SubscriptionEntitlementLevelInput> levelInputs) {
         return levelInputs.stream()
-                .map(input -> SubscriptionEntitlementLevel.of(input.ordinal(), input.label()))
+                .map(input -> SubscriptionEntitlementLevel.of(input.ordinal(), input.name(), input.displayName()))
                 .toList();
     }
 

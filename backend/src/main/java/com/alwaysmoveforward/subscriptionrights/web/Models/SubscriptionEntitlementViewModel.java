@@ -13,18 +13,20 @@ public class SubscriptionEntitlementViewModel {
     private final String displayName;
     private final String valueType;
     private final List<SubscriptionEntitlementLevelViewModel> levels;
+    private final int defaultValue;
     private final Instant createdAt;
     private final Instant updatedAt;
 
     public SubscriptionEntitlementViewModel(Long id, Long applicationId, String name, String displayName,
                                              String valueType, List<SubscriptionEntitlementLevelViewModel> levels,
-                                             Instant createdAt, Instant updatedAt) {
+                                             int defaultValue, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.applicationId = applicationId;
         this.name = name;
         this.displayName = displayName;
         this.valueType = valueType;
         this.levels = levels;
+        this.defaultValue = defaultValue;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -33,7 +35,7 @@ public class SubscriptionEntitlementViewModel {
         List<SubscriptionEntitlementLevelViewModel> levels = entitlement.getLevels().stream()
                 .map(SubscriptionEntitlementLevelViewModel::from).toList();
         return new SubscriptionEntitlementViewModel(entitlement.getId(), entitlement.getApplicationId(), entitlement.getName(),
-                entitlement.getDisplayName(), entitlement.getValueType().name(), levels,
+                entitlement.getDisplayName(), entitlement.getValueType().name(), levels, entitlement.getDefaultValue(),
                 entitlement.getCreatedAt(), entitlement.getUpdatedAt());
     }
 
@@ -59,6 +61,10 @@ public class SubscriptionEntitlementViewModel {
 
     public List<SubscriptionEntitlementLevelViewModel> getLevels() {
         return levels;
+    }
+
+    public int getDefaultValue() {
+        return defaultValue;
     }
 
     public Instant getCreatedAt() {

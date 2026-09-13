@@ -19,22 +19,31 @@ const emptyForm: SubscriptionEntitlementRequest = {
   displayName: "",
   valueType: "NUMERIC",
   levels: [],
+  defaultValue: 0,
 };
+
+const LEVEL_NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 
 interface LevelRow {
   key: number;
   ordinal: number | "";
-  label: string;
+  name: string;
+  displayName: string;
 }
 
 let levelRowKeySeq = 0;
 function newLevelRow(): LevelRow {
-  return { key: ++levelRowKeySeq, ordinal: "", label: "" };
+  return { key: ++levelRowKeySeq, ordinal: "", name: "", displayName: "" };
 }
 
 function rowsFromLevels(levels: SubscriptionEntitlementLevelDto[]): LevelRow[] {
   if (levels.length === 0) return [newLevelRow()];
-  return levels.map((level) => ({ key: ++levelRowKeySeq, ordinal: level.ordinal, label: level.label }));
+  return levels.map((level) => ({
+    key: ++levelRowKeySeq,
+    ordinal: level.ordinal,
+    name: level.name,
+    displayName: level.displayName,
+  }));
 }
 
 function SubscriptionEntitlementForm({
@@ -50,6 +59,7 @@ function SubscriptionEntitlementForm({
   const [displayName, setDisplayName] = useState(initial.displayName);
   const [valueType, setValueType] = useState<EntitlementValueType>(initial.valueType);
   const [levelRows, setLevelRows] = useState<LevelRow[]>(() => rowsFromLevels(initial.levels));
+  const [defaultValue, setDefaultValue] = useState(initial.defaultValue);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,9 +77,11 @@ function SubscriptionEntitlementForm({
 
   function validateLevels(): string | null {
     if (valueType !== "ORDINAL") return null;
-    const complete = levelRows.filter((row) => row.ordinal !== "" && row.label.trim() !== "");
+    const complete = levelRows.filter(
+      (row) => row.ordinal !== "" && row.name.trim() !== "" && row.displayName.trim() !== "",
+    );
     if (complete.length !== levelRows.length) {
-      return "Every level needs an ordinal and a label (or remove the incomplete row).";
+      return "Every level needs an ordinal, a name, and a display label (or remove the incomplete row).";
     }
     if (complete.length === 0) {
       return "An Ordinal Levels entitlement needs at least one level.";
@@ -78,24 +90,51 @@ function SubscriptionEntitlementForm({
     if (new Set(ordinals).size !== ordinals.length) {
       return "Two levels share the same ordinal — each level needs a distinct ordinal.";
     }
+    if (complete.some((row) => !LEVEL_NAME_PATTERN.test(row.name.trim()))) {
+      return "Level names must be UPPER_SNAKE_CASE (start with a letter, then letters/digits/underscores).";
+    }
+    const names = complete.map((row) => row.name.trim());
+    if (new Set(names).size !== names.length) {
+      return "Two levels share the same name — each level needs a distinct name.";
+    }
     return null;
+  }
+
+  /** Mirrors SubscriptionEntitlement#validateValue on the backend. */
+  function validateDefaultValue(): string | null {
+    if (valueType === "BOOLEAN" && defaultValue !== 0 && defaultValue !== 1) {
+      return "Default Value must be 0 or 1 for a Boolean entitlement.";
+    }
+    if (valueType === "ORDINAL" && !levelRows.some((row) => row.ordinal === defaultValue)) {
+      return "Default Value must match one of this entitlement's level ordinals.";
+    }
+    return null;
+  }
+
+  function handleValueTypeChange(newValueType: EntitlementValueType) {
+    setValueType(newValueType);
+    setDefaultValue(0);
   }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    const validationError = validateLevels();
+    const validationError = validateLevels() ?? validateDefaultValue();
     if (validationError) {
       setError(validationError);
       return;
     }
     const levels: SubscriptionEntitlementLevelDto[] =
       valueType === "ORDINAL"
-        ? levelRows.map((row) => ({ ordinal: row.ordinal as number, label: row.label.trim() }))
+        ? levelRows.map((row) => ({
+            ordinal: row.ordinal as number,
+            name: row.name.trim(),
+            displayName: row.displayName.trim(),
+          }))
         : [];
     setSaving(true);
     try {
-      await onSubmit({ name, displayName, valueType, levels });
+      await onSubmit({ name, displayName, valueType, levels, defaultValue });
     } finally {
       setSaving(false);
     }
@@ -113,7 +152,7 @@ function SubscriptionEntitlementForm({
       </label>
       <label>
         Value Type
-        <select value={valueType} onChange={(e) => setValueType(e.target.value as EntitlementValueType)}>
+        <select value={valueType} onChange={(e) => handleValueTypeChange(e.target.value as EntitlementValueType)}>
           <option value="BOOLEAN">Boolean (0/1)</option>
           <option value="NUMERIC">Numeric</option>
           <option value="ORDINAL">Ordinal Levels</option>
@@ -134,9 +173,16 @@ function SubscriptionEntitlementForm({
               />
               <input
                 type="text"
-                placeholder="Label"
-                value={row.label}
-                onChange={(e) => updateLevelRow(index, { label: e.target.value })}
+                placeholder="NAME (UPPER_SNAKE_CASE)"
+                value={row.name}
+                onChange={(e) => updateLevelRow(index, { name: e.target.value.toUpperCase() })}
+                required
+              />
+              <input
+                type="text"
+                placeholder="Display Label"
+                value={row.displayName}
+                onChange={(e) => updateLevelRow(index, { displayName: e.target.value })}
                 required
               />
               <button type="button" onClick={() => removeLevelRow(index)} disabled={levelRows.length === 1}>
@@ -149,6 +195,32 @@ function SubscriptionEntitlementForm({
           </button>
         </>
       )}
+
+      <label>
+        Default Value
+        <p className="form-hint">Used for a plan version that doesn't explicitly grant this entitlement.</p>
+        {valueType === "BOOLEAN" && (
+          <input
+            type="checkbox"
+            checked={defaultValue === 1}
+            onChange={(e) => setDefaultValue(e.target.checked ? 1 : 0)}
+          />
+        )}
+        {valueType === "ORDINAL" && (
+          <select value={defaultValue} onChange={(e) => setDefaultValue(Number(e.target.value))}>
+            {levelRows
+              .filter((row) => row.ordinal !== "")
+              .map((row) => (
+                <option key={row.key} value={row.ordinal}>
+                  {row.displayName || `Ordinal ${row.ordinal}`}
+                </option>
+              ))}
+          </select>
+        )}
+        {valueType === "NUMERIC" && (
+          <input type="number" value={defaultValue} onChange={(e) => setDefaultValue(Number(e.target.value))} required />
+        )}
+      </label>
 
       {error && <p className="form-error">{error}</p>}
 
@@ -229,6 +301,13 @@ export function SubscriptionEntitlementsTab() {
           { header: "Display Name", render: (row) => row.displayName },
           { header: "Value Type", render: (row) => row.valueType },
           {
+            header: "Default Value",
+            render: (row) =>
+              row.valueType === "ORDINAL"
+                ? (row.levels.find((level) => level.ordinal === row.defaultValue)?.displayName ?? row.defaultValue)
+                : row.defaultValue,
+          },
+          {
             header: "Actions",
             render: (row) => (
               <RoleGuard requireAdmin>
@@ -264,6 +343,7 @@ export function SubscriptionEntitlementsTab() {
               displayName: editing.displayName,
               valueType: editing.valueType,
               levels: editing.levels,
+              defaultValue: editing.defaultValue,
             }}
             onSubmit={handleUpdate}
             onCancel={() => setEditing(null)}

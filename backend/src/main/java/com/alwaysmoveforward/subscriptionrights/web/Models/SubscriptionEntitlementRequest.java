@@ -21,6 +21,9 @@ public class SubscriptionEntitlementRequest {
     @Valid
     private List<SubscriptionEntitlementLevelRequest> levels;
 
+    @NotNull
+    private Integer defaultValue;
+
     public String getName() {
         return name;
     }
@@ -51,5 +54,13 @@ public class SubscriptionEntitlementRequest {
 
     public void setLevels(List<SubscriptionEntitlementLevelRequest> levels) {
         this.levels = levels;
+    }
+
+    public Integer getDefaultValue() {
+        return defaultValue;
+    }
+
+    public void setDefaultValue(Integer defaultValue) {
+        this.defaultValue = defaultValue;
     }
 }

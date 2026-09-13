@@ -42,7 +42,7 @@ public class SubscriptionEntitlementController {
                                                     @Valid @RequestBody SubscriptionEntitlementRequest request) {
         return SubscriptionEntitlementViewModel.from(
                 subscriptionEntitlementService.createEntitlement(applicationId, request.getName(), request.getDisplayName(),
-                        request.getValueType(), toLevelInputs(request.getLevels())));
+                        request.getValueType(), toLevelInputs(request.getLevels()), request.getDefaultValue()));
     }
 
     @PutMapping("/{id}")
@@ -51,7 +51,7 @@ public class SubscriptionEntitlementController {
                                                     @Valid @RequestBody SubscriptionEntitlementRequest request) {
         return SubscriptionEntitlementViewModel.from(
                 subscriptionEntitlementService.updateEntitlement(applicationId, id, request.getName(), request.getDisplayName(),
-                        request.getValueType(), toLevelInputs(request.getLevels())));
+                        request.getValueType(), toLevelInputs(request.getLevels()), request.getDefaultValue()));
     }
 
     @DeleteMapping("/{id}")
@@ -63,7 +63,7 @@ public class SubscriptionEntitlementController {
 
     private List<SubscriptionEntitlementLevelInput> toLevelInputs(List<SubscriptionEntitlementLevelRequest> levels) {
         return levels.stream()
-                .map(level -> new SubscriptionEntitlementLevelInput(level.getOrdinal(), level.getLabel()))
+                .map(level -> new SubscriptionEntitlementLevelInput(level.getOrdinal(), level.getName(), level.getDisplayName()))
                 .toList();
     }
 }
