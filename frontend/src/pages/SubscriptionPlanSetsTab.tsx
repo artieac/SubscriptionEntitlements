@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useOutletContext } from "react-router-dom";
 import { SubscriptionPlanSetRepository } from "../api/SubscriptionPlanSetRepository";
@@ -92,6 +92,32 @@ function rowsFromSet(set: SubscriptionPlanSetDto | null, plans: SubscriptionPlan
   });
 }
 
+const ENTITLEMENT_TYPE_LABELS: Record<SubscriptionEntitlementDto["valueType"], string> = {
+  BOOLEAN: "Boolean",
+  NUMERIC: "Numeric",
+  ORDINAL: "Ordinal",
+};
+
+/** Mirrors the read-only rendering in SubscriptionPlanGrantsTab: shape the value by the entitlement's valueType. */
+function formatGrantValue(entitlement: SubscriptionEntitlementDto, value: number): string {
+  if (entitlement.valueType === "BOOLEAN") {
+    return value === 1 ? "Yes" : "No";
+  }
+  if (entitlement.valueType === "ORDINAL") {
+    const level = entitlement.levels.find((l) => l.ordinal === value);
+    return level ? level.label : String(value);
+  }
+  return String(value);
+}
+
+/** The implicit value for an entitlement that isn't granted on a plan version: 0 for booleans/numerics, the lowest ordinal for ordinals. */
+function defaultGrantValue(entitlement: SubscriptionEntitlementDto): number {
+  if (entitlement.valueType === "ORDINAL" && entitlement.levels.length > 0) {
+    return entitlement.levels.reduce((lowest, level) => (level.ordinal < lowest ? level.ordinal : lowest), entitlement.levels[0].ordinal);
+  }
+  return 0;
+}
+
 function PlanVersionGrantsModal({
   applicationId,
   planId,
@@ -110,8 +136,6 @@ function PlanVersionGrantsModal({
   const [grants, setGrants] = useState<SubscriptionPlanGrantDto[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const entitlementById = useMemo(() => new Map(entitlements.map((e) => [e.id, e])), [entitlements]);
-
   useEffect(() => {
     setLoading(true);
     SubscriptionPlanGrantRepository.list(applicationId, planId)
@@ -120,7 +144,9 @@ function PlanVersionGrantsModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId, planId]);
 
-  const grantsForVersion = grants.filter((g) => g.subscriptionPlanVersion === version);
+  const grantByEntitlementId = new Map(
+    grants.filter((g) => g.subscriptionPlanVersion === version).map((g) => [g.subscriptionEntitlementId, g]),
+  );
 
   return (
     <Modal title={`Grants for "${planName}" v${version}`} onClose={onClose}>
@@ -131,21 +157,30 @@ function PlanVersionGrantsModal({
           <thead>
             <tr>
               <th>Entitlement</th>
+              <th>Type</th>
               <th>Value</th>
             </tr>
           </thead>
           <tbody>
-            {grantsForVersion.length === 0 ? (
+            {entitlements.length === 0 ? (
               <tr>
-                <td colSpan={2}>No entitlements granted in this version.</td>
+                <td colSpan={3}>No entitlements defined for this application.</td>
               </tr>
             ) : (
-              grantsForVersion.map((grant) => (
-                <tr key={grant.id}>
-                  <td>{entitlementById.get(grant.subscriptionEntitlementId)?.displayName ?? grant.subscriptionEntitlementId}</td>
-                  <td>{grant.value}</td>
-                </tr>
-              ))
+              entitlements.map((entitlement) => {
+                const grant = grantByEntitlementId.get(entitlement.id);
+                const value = grant ? grant.value : defaultGrantValue(entitlement);
+                return (
+                  <tr key={entitlement.id}>
+                    <td>{entitlement.displayName}</td>
+                    <td>{ENTITLEMENT_TYPE_LABELS[entitlement.valueType]}</td>
+                    <td>
+                      {formatGrantValue(entitlement, value)}
+                      {!grant && <em> (defaulted, not explicitly set)</em>}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
