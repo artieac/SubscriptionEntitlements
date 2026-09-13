@@ -3,7 +3,9 @@ import type { FormEvent } from "react";
 import { useOutletContext } from "react-router-dom";
 import { SubscriptionEntitlementRepository } from "../api/SubscriptionEntitlementRepository";
 import type {
+  EntitlementValueType,
   SubscriptionEntitlementDto,
+  SubscriptionEntitlementLevelDto,
   SubscriptionEntitlementRequest,
 } from "../models/SubscriptionEntitlementDto";
 import { DataTable } from "../components/DataTable";
@@ -12,7 +14,28 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { RoleGuard } from "../components/RoleGuard";
 
-const emptyForm: SubscriptionEntitlementRequest = { name: "", displayName: "" };
+const emptyForm: SubscriptionEntitlementRequest = {
+  name: "",
+  displayName: "",
+  valueType: "NUMERIC",
+  levels: [],
+};
+
+interface LevelRow {
+  key: number;
+  ordinal: number | "";
+  label: string;
+}
+
+let levelRowKeySeq = 0;
+function newLevelRow(): LevelRow {
+  return { key: ++levelRowKeySeq, ordinal: "", label: "" };
+}
+
+function rowsFromLevels(levels: SubscriptionEntitlementLevelDto[]): LevelRow[] {
+  if (levels.length === 0) return [newLevelRow()];
+  return levels.map((level) => ({ key: ++levelRowKeySeq, ordinal: level.ordinal, label: level.label }));
+}
 
 function SubscriptionEntitlementForm({
   initial,
@@ -23,14 +46,56 @@ function SubscriptionEntitlementForm({
   onSubmit: (request: SubscriptionEntitlementRequest) => Promise<void>;
   onCancel: () => void;
 }) {
-  const [form, setForm] = useState(initial);
+  const [name, setName] = useState(initial.name);
+  const [displayName, setDisplayName] = useState(initial.displayName);
+  const [valueType, setValueType] = useState<EntitlementValueType>(initial.valueType);
+  const [levelRows, setLevelRows] = useState<LevelRow[]>(() => rowsFromLevels(initial.levels));
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function updateLevelRow(index: number, patch: Partial<LevelRow>) {
+    setLevelRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  function addLevelRow() {
+    setLevelRows((current) => [...current, newLevelRow()]);
+  }
+
+  function removeLevelRow(index: number) {
+    setLevelRows((current) => current.filter((_, i) => i !== index));
+  }
+
+  function validateLevels(): string | null {
+    if (valueType !== "ORDINAL") return null;
+    const complete = levelRows.filter((row) => row.ordinal !== "" && row.label.trim() !== "");
+    if (complete.length !== levelRows.length) {
+      return "Every level needs an ordinal and a label (or remove the incomplete row).";
+    }
+    if (complete.length === 0) {
+      return "An Ordinal Levels entitlement needs at least one level.";
+    }
+    const ordinals = complete.map((row) => row.ordinal);
+    if (new Set(ordinals).size !== ordinals.length) {
+      return "Two levels share the same ordinal — each level needs a distinct ordinal.";
+    }
+    return null;
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    setError(null);
+    const validationError = validateLevels();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    const levels: SubscriptionEntitlementLevelDto[] =
+      valueType === "ORDINAL"
+        ? levelRows.map((row) => ({ ordinal: row.ordinal as number, label: row.label.trim() }))
+        : [];
     setSaving(true);
     try {
-      await onSubmit(form);
+      await onSubmit({ name, displayName, valueType, levels });
     } finally {
       setSaving(false);
     }
@@ -40,16 +105,53 @@ function SubscriptionEntitlementForm({
     <form onSubmit={handleSubmit}>
       <label>
         Name
-        <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+        <input value={name} onChange={(e) => setName(e.target.value)} required />
       </label>
       <label>
         Display Name
-        <input
-          value={form.displayName}
-          onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-          required
-        />
+        <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
       </label>
+      <label>
+        Value Type
+        <select value={valueType} onChange={(e) => setValueType(e.target.value as EntitlementValueType)}>
+          <option value="BOOLEAN">Boolean (0/1)</option>
+          <option value="NUMERIC">Numeric</option>
+          <option value="ORDINAL">Ordinal Levels</option>
+        </select>
+      </label>
+
+      {valueType === "ORDINAL" && (
+        <>
+          <p className="form-hint">Levels:</p>
+          {levelRows.map((row, index) => (
+            <div className="item-builder-row" key={row.key}>
+              <input
+                type="number"
+                placeholder="Ordinal"
+                value={row.ordinal}
+                onChange={(e) => updateLevelRow(index, { ordinal: e.target.value ? Number(e.target.value) : "" })}
+                required
+              />
+              <input
+                type="text"
+                placeholder="Label"
+                value={row.label}
+                onChange={(e) => updateLevelRow(index, { label: e.target.value })}
+                required
+              />
+              <button type="button" onClick={() => removeLevelRow(index)} disabled={levelRows.length === 1}>
+                Remove
+              </button>
+            </div>
+          ))}
+          <button type="button" onClick={addLevelRow}>
+            Add Level
+          </button>
+        </>
+      )}
+
+      {error && <p className="form-error">{error}</p>}
+
       <div className="dialog-actions">
         <button type="button" onClick={onCancel}>
           Cancel
@@ -125,6 +227,7 @@ export function SubscriptionEntitlementsTab() {
         columns={[
           { header: "Name", render: (row) => row.name },
           { header: "Display Name", render: (row) => row.displayName },
+          { header: "Value Type", render: (row) => row.valueType },
           {
             header: "Actions",
             render: (row) => (
@@ -156,7 +259,12 @@ export function SubscriptionEntitlementsTab() {
       {editing && (
         <Modal title="Edit Subscription Entitlement" onClose={() => setEditing(null)}>
           <SubscriptionEntitlementForm
-            initial={{ name: editing.name, displayName: editing.displayName }}
+            initial={{
+              name: editing.name,
+              displayName: editing.displayName,
+              valueType: editing.valueType,
+              levels: editing.levels,
+            }}
             onSubmit={handleUpdate}
             onCancel={() => setEditing(null)}
           />

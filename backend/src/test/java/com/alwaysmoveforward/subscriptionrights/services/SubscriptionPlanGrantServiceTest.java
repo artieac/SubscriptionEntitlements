@@ -3,6 +3,7 @@ package com.alwaysmoveforward.subscriptionrights.services;
 import com.alwaysmoveforward.subscriptionrights.data.Entities.ApplicationEntity;
 import com.alwaysmoveforward.subscriptionrights.data.dao.ApplicationDAO;
 import com.alwaysmoveforward.subscriptionrights.data.dao.SubscriptionEntitlementDAO;
+import com.alwaysmoveforward.subscriptionrights.data.dao.SubscriptionEntitlementLevelDAO;
 import com.alwaysmoveforward.subscriptionrights.data.dao.SubscriptionPlanDAO;
 import com.alwaysmoveforward.subscriptionrights.data.dao.SubscriptionPlanGrantDAO;
 import com.alwaysmoveforward.subscriptionrights.data.dao.SubscriptionPlanIdSequenceDAO;
@@ -14,9 +15,12 @@ import com.alwaysmoveforward.subscriptionrights.data.repositories.ApplicationRep
 import com.alwaysmoveforward.subscriptionrights.data.repositories.SubscriptionEntitlementRepository;
 import com.alwaysmoveforward.subscriptionrights.data.repositories.SubscriptionPlanGrantRepository;
 import com.alwaysmoveforward.subscriptionrights.data.repositories.SubscriptionPlanRepository;
+import com.alwaysmoveforward.subscriptionrights.domainmodel.EntitlementValueType;
 import com.alwaysmoveforward.subscriptionrights.domainmodel.SubscriptionEntitlement;
+import com.alwaysmoveforward.subscriptionrights.domainmodel.SubscriptionEntitlementLevel;
 import com.alwaysmoveforward.subscriptionrights.domainmodel.SubscriptionPlan;
 import com.alwaysmoveforward.subscriptionrights.domainmodel.SubscriptionPlanGrant;
+import com.alwaysmoveforward.subscriptionrights.exceptions.DomainException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -27,6 +31,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Exercises SubscriptionPlanGrantService#replaceGrantsForPlan against a real (H2) JPA
@@ -49,6 +54,8 @@ class SubscriptionPlanGrantServiceTest {
     @Autowired
     private SubscriptionEntitlementDAO subscriptionEntitlementDAO;
     @Autowired
+    private SubscriptionEntitlementLevelDAO subscriptionEntitlementLevelDAO;
+    @Autowired
     private SubscriptionPlanGrantDAO subscriptionPlanGrantDAO;
     @Autowired
     private jakarta.persistence.EntityManager entityManager;
@@ -58,7 +65,7 @@ class SubscriptionPlanGrantServiceTest {
         SubscriptionPlanRepository subscriptionPlanRepository =
                 new SubscriptionPlanRepository(subscriptionPlanDAO, subscriptionPlanIdSequenceDAO, new SubscriptionPlanMapper());
         SubscriptionEntitlementRepository subscriptionEntitlementRepository =
-                new SubscriptionEntitlementRepository(subscriptionEntitlementDAO, new SubscriptionEntitlementMapper());
+                new SubscriptionEntitlementRepository(subscriptionEntitlementDAO, subscriptionEntitlementLevelDAO, new SubscriptionEntitlementMapper());
         SubscriptionPlanGrantRepository subscriptionPlanGrantRepository =
                 new SubscriptionPlanGrantRepository(subscriptionPlanGrantDAO, new SubscriptionPlanGrantMapper());
 
@@ -87,12 +94,12 @@ class SubscriptionPlanGrantServiceTest {
         SubscriptionPlanRepository subscriptionPlanRepository = new SubscriptionPlanRepository(
                 subscriptionPlanDAO, subscriptionPlanIdSequenceDAO, new SubscriptionPlanMapper());
         SubscriptionEntitlementRepository subscriptionEntitlementRepository =
-                new SubscriptionEntitlementRepository(subscriptionEntitlementDAO, new SubscriptionEntitlementMapper());
+                new SubscriptionEntitlementRepository(subscriptionEntitlementDAO, subscriptionEntitlementLevelDAO, new SubscriptionEntitlementMapper());
 
         Long applicationId = seedApplication();
         SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
         SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
-                SubscriptionEntitlement.create(applicationId, "api-calls", "API Calls"));
+                SubscriptionEntitlement.create(applicationId, "api-calls", "API Calls", EntitlementValueType.NUMERIC, List.of()));
         entityManager.flush();
         entityManager.clear();
 
@@ -122,12 +129,12 @@ class SubscriptionPlanGrantServiceTest {
         SubscriptionPlanRepository subscriptionPlanRepository = new SubscriptionPlanRepository(
                 subscriptionPlanDAO, subscriptionPlanIdSequenceDAO, new SubscriptionPlanMapper());
         SubscriptionEntitlementRepository subscriptionEntitlementRepository =
-                new SubscriptionEntitlementRepository(subscriptionEntitlementDAO, new SubscriptionEntitlementMapper());
+                new SubscriptionEntitlementRepository(subscriptionEntitlementDAO, subscriptionEntitlementLevelDAO, new SubscriptionEntitlementMapper());
 
         Long applicationId = seedApplication();
         SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
         SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
-                SubscriptionEntitlement.create(applicationId, "api-calls", "API Calls"));
+                SubscriptionEntitlement.create(applicationId, "api-calls", "API Calls", EntitlementValueType.NUMERIC, List.of()));
         entityManager.flush();
         entityManager.clear();
 
@@ -158,12 +165,12 @@ class SubscriptionPlanGrantServiceTest {
         SubscriptionPlanRepository subscriptionPlanRepository = new SubscriptionPlanRepository(
                 subscriptionPlanDAO, subscriptionPlanIdSequenceDAO, new SubscriptionPlanMapper());
         SubscriptionEntitlementRepository subscriptionEntitlementRepository =
-                new SubscriptionEntitlementRepository(subscriptionEntitlementDAO, new SubscriptionEntitlementMapper());
+                new SubscriptionEntitlementRepository(subscriptionEntitlementDAO, subscriptionEntitlementLevelDAO, new SubscriptionEntitlementMapper());
 
         Long applicationId = seedApplication();
         SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
         SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
-                SubscriptionEntitlement.create(applicationId, "api-calls", "API Calls"));
+                SubscriptionEntitlement.create(applicationId, "api-calls", "API Calls", EntitlementValueType.NUMERIC, List.of()));
         entityManager.flush();
         entityManager.clear();
 
@@ -175,5 +182,95 @@ class SubscriptionPlanGrantServiceTest {
         assertThat(result.getVersion()).isEqualTo(2);
         List<SubscriptionPlan> allVersions = subscriptionPlanRepository.findAllVersions(plan.getId());
         assertThat(allVersions).hasSize(2);
+    }
+
+    @Test
+    void rejectsAnOutOfRangeValueForABooleanEntitlement() {
+        SubscriptionPlanGrantService grantService = newGrantService();
+        SubscriptionPlanRepository subscriptionPlanRepository = new SubscriptionPlanRepository(
+                subscriptionPlanDAO, subscriptionPlanIdSequenceDAO, new SubscriptionPlanMapper());
+        SubscriptionEntitlementRepository subscriptionEntitlementRepository =
+                new SubscriptionEntitlementRepository(subscriptionEntitlementDAO, subscriptionEntitlementLevelDAO, new SubscriptionEntitlementMapper());
+
+        Long applicationId = seedApplication();
+        SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
+        SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
+                SubscriptionEntitlement.create(applicationId, "dark-mode", "Dark Mode", EntitlementValueType.BOOLEAN, List.of()));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> grantService.replaceGrantsForPlan(applicationId, plan.getId(),
+                List.of(new GrantValueInput(entitlement.getId(), 2)), false, null))
+                .isInstanceOf(DomainException.class);
+    }
+
+    @Test
+    void acceptsInRangeValuesForABooleanEntitlement() {
+        SubscriptionPlanGrantService grantService = newGrantService();
+        SubscriptionPlanRepository subscriptionPlanRepository = new SubscriptionPlanRepository(
+                subscriptionPlanDAO, subscriptionPlanIdSequenceDAO, new SubscriptionPlanMapper());
+        SubscriptionEntitlementRepository subscriptionEntitlementRepository =
+                new SubscriptionEntitlementRepository(subscriptionEntitlementDAO, subscriptionEntitlementLevelDAO, new SubscriptionEntitlementMapper());
+
+        Long applicationId = seedApplication();
+        SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
+        SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
+                SubscriptionEntitlement.create(applicationId, "dark-mode", "Dark Mode", EntitlementValueType.BOOLEAN, List.of()));
+        entityManager.flush();
+        entityManager.clear();
+
+        SubscriptionPlan result = grantService.replaceGrantsForPlan(applicationId, plan.getId(),
+                List.of(new GrantValueInput(entitlement.getId(), 1)), false, null);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(result.getVersion()).isEqualTo(1);
+    }
+
+    @Test
+    void rejectsAnOrdinalValueThatDoesNotMatchAnyDefinedLevel() {
+        SubscriptionPlanGrantService grantService = newGrantService();
+        SubscriptionPlanRepository subscriptionPlanRepository = new SubscriptionPlanRepository(
+                subscriptionPlanDAO, subscriptionPlanIdSequenceDAO, new SubscriptionPlanMapper());
+        SubscriptionEntitlementRepository subscriptionEntitlementRepository =
+                new SubscriptionEntitlementRepository(subscriptionEntitlementDAO, subscriptionEntitlementLevelDAO, new SubscriptionEntitlementMapper());
+
+        Long applicationId = seedApplication();
+        SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
+        SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
+                SubscriptionEntitlement.create(applicationId, "automation-level", "Automation Level", EntitlementValueType.ORDINAL,
+                        List.of(SubscriptionEntitlementLevel.of(0, "None"), SubscriptionEntitlementLevel.of(1, "Manual"),
+                                SubscriptionEntitlementLevel.of(2, "Automated"))));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> grantService.replaceGrantsForPlan(applicationId, plan.getId(),
+                List.of(new GrantValueInput(entitlement.getId(), 3)), false, null))
+                .isInstanceOf(DomainException.class);
+    }
+
+    @Test
+    void acceptsAnOrdinalValueThatMatchesADefinedLevel() {
+        SubscriptionPlanGrantService grantService = newGrantService();
+        SubscriptionPlanRepository subscriptionPlanRepository = new SubscriptionPlanRepository(
+                subscriptionPlanDAO, subscriptionPlanIdSequenceDAO, new SubscriptionPlanMapper());
+        SubscriptionEntitlementRepository subscriptionEntitlementRepository =
+                new SubscriptionEntitlementRepository(subscriptionEntitlementDAO, subscriptionEntitlementLevelDAO, new SubscriptionEntitlementMapper());
+
+        Long applicationId = seedApplication();
+        SubscriptionPlan plan = subscriptionPlanRepository.createNewPlan(applicationId, "Gold", "d");
+        SubscriptionEntitlement entitlement = subscriptionEntitlementRepository.save(
+                SubscriptionEntitlement.create(applicationId, "automation-level", "Automation Level", EntitlementValueType.ORDINAL,
+                        List.of(SubscriptionEntitlementLevel.of(0, "None"), SubscriptionEntitlementLevel.of(1, "Manual"),
+                                SubscriptionEntitlementLevel.of(2, "Automated"))));
+        entityManager.flush();
+        entityManager.clear();
+
+        SubscriptionPlan result = grantService.replaceGrantsForPlan(applicationId, plan.getId(),
+                List.of(new GrantValueInput(entitlement.getId(), 2)), false, null);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(result.getVersion()).isEqualTo(1);
     }
 }

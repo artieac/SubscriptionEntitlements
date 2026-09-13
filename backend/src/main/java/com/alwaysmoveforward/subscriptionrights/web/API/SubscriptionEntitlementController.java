@@ -1,6 +1,8 @@
 package com.alwaysmoveforward.subscriptionrights.web.API;
 
+import com.alwaysmoveforward.subscriptionrights.services.SubscriptionEntitlementLevelInput;
 import com.alwaysmoveforward.subscriptionrights.services.SubscriptionEntitlementService;
+import com.alwaysmoveforward.subscriptionrights.web.Models.SubscriptionEntitlementLevelRequest;
 import com.alwaysmoveforward.subscriptionrights.web.Models.SubscriptionEntitlementRequest;
 import com.alwaysmoveforward.subscriptionrights.web.Models.SubscriptionEntitlementViewModel;
 import jakarta.validation.Valid;
@@ -39,7 +41,8 @@ public class SubscriptionEntitlementController {
     public SubscriptionEntitlementViewModel create(@PathVariable Long applicationId,
                                                     @Valid @RequestBody SubscriptionEntitlementRequest request) {
         return SubscriptionEntitlementViewModel.from(
-                subscriptionEntitlementService.createEntitlement(applicationId, request.getName(), request.getDisplayName()));
+                subscriptionEntitlementService.createEntitlement(applicationId, request.getName(), request.getDisplayName(),
+                        request.getValueType(), toLevelInputs(request.getLevels())));
     }
 
     @PutMapping("/{id}")
@@ -47,7 +50,8 @@ public class SubscriptionEntitlementController {
     public SubscriptionEntitlementViewModel update(@PathVariable Long applicationId, @PathVariable Long id,
                                                     @Valid @RequestBody SubscriptionEntitlementRequest request) {
         return SubscriptionEntitlementViewModel.from(
-                subscriptionEntitlementService.updateEntitlement(applicationId, id, request.getName(), request.getDisplayName()));
+                subscriptionEntitlementService.updateEntitlement(applicationId, id, request.getName(), request.getDisplayName(),
+                        request.getValueType(), toLevelInputs(request.getLevels())));
     }
 
     @DeleteMapping("/{id}")
@@ -55,5 +59,11 @@ public class SubscriptionEntitlementController {
     @PreAuthorize("hasRole('ADMIN')")
     public void delete(@PathVariable Long applicationId, @PathVariable Long id) {
         subscriptionEntitlementService.deleteEntitlement(applicationId, id);
+    }
+
+    private List<SubscriptionEntitlementLevelInput> toLevelInputs(List<SubscriptionEntitlementLevelRequest> levels) {
+        return levels.stream()
+                .map(level -> new SubscriptionEntitlementLevelInput(level.getOrdinal(), level.getLabel()))
+                .toList();
     }
 }
