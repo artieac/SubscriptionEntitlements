@@ -85,7 +85,7 @@ subscriptions:
         default-value: ${SUBSCRIPTIONS_COOKIE_DOMAIN:subscriptions.alwaysmoveforward.com}
       app-jwt-cookie-secure:
         key: AppJwtCookieSecure
-        default-value: "true"
+        default-value: "false"
       app-jwt-cookie-expiration-minutes:
         key: AppJwtCookieExpirationMinutes
         default-value: "600"
