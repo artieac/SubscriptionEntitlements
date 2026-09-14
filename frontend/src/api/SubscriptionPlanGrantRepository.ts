@@ -8,11 +8,10 @@ export const SubscriptionPlanGrantRepository = {
   async list(
     applicationId: number,
     subscriptionPlanId?: number,
-    excludeDefaults?: boolean,
   ): Promise<SubscriptionPlanGrantDto[]> {
     const response = await RestClient.get<SubscriptionPlanGrantDto[]>(
       `/api/applications/${applicationId}/subscription-plan-grants`,
-      { params: { subscriptionPlanId, excludeDefaults } },
+      { params: { subscriptionPlanId } },
     );
     return response.data;
   },

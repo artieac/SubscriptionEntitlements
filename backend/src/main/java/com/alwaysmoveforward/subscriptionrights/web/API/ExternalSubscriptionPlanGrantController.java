@@ -37,8 +37,8 @@ public class ExternalSubscriptionPlanGrantController {
     }
 
     /**
-     * @param excludeDefaults true returns only grants that were actually created; false (the
-     *                         default) also synthesizes one defaulted=true entry per entitlement
+     * @param includeDefaults false (the default) returns only grants that were actually created;
+     *                         true also synthesizes one defaulted=true entry per entitlement
      *                         missing a grant at a (plan, version) pair otherwise present in the
      *                         results -- see {@link SubscriptionPlanGrantViewModel#listIncludingDefaults}.
      */
@@ -46,10 +46,10 @@ public class ExternalSubscriptionPlanGrantController {
     @PreAuthorize("@externalApiTokenAccessGuard.canAccess(#externalId)")
     public List<SubscriptionPlanGrantViewModel> list(@PathVariable String externalId,
                                                        @RequestParam(required = false) Long subscriptionPlanId,
-                                                       @RequestParam(required = false, defaultValue = "false") boolean excludeDefaults) {
+                                                       @RequestParam(required = false, defaultValue = "false") boolean includeDefaults) {
         Long applicationId = applicationService.getApplicationByExternalId(externalId).getId();
         List<SubscriptionPlanGrant> grants = subscriptionPlanGrantService.listForApplication(applicationId, subscriptionPlanId);
-        if (excludeDefaults) {
+        if (!includeDefaults) {
             return grants.stream().map(SubscriptionPlanGrantViewModel::from).toList();
         }
         List<SubscriptionEntitlement> entitlements = subscriptionEntitlementService.listForApplication(applicationId);

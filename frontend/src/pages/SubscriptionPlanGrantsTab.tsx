@@ -10,8 +10,9 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { RoleGuard } from "../components/RoleGuard";
 import { useAuth } from "../context/AuthContext";
 
-// entitlementId -> draft value, "" meaning "not granted"
-type DraftValues = Map<number, number | "">;
+// entitlementId -> draft value. Only entitlements the admin has explicitly added to the plan
+// appear here -- there is no "not granted" sentinel; removing a grant removes the map entry.
+type DraftValues = Map<number, number>;
 
 function valuesForVersion(grants: SubscriptionPlanGrantDto[], version: number): DraftValues {
   return new Map(
@@ -20,19 +21,13 @@ function valuesForVersion(grants: SubscriptionPlanGrantDto[], version: number): 
 }
 
 /** The editable control for one entitlement's grant value, shaped by its valueType. */
-function renderValueInput(
-  entitlement: SubscriptionEntitlementDto,
-  value: number | "",
-  onChange: (rawValue: string) => void,
-) {
+function renderValueInput(entitlement: SubscriptionEntitlementDto, value: number, onChange: (rawValue: string) => void) {
   if (entitlement.valueType === "BOOLEAN") {
-    return <input type="checkbox" checked={value === 1} onChange={(e) => onChange(e.target.checked ? "1" : "")} />;
+    return <input type="checkbox" checked={value === 1} onChange={(e) => onChange(e.target.checked ? "1" : "0")} />;
   }
   if (entitlement.valueType === "ORDINAL") {
-    const defaultLevel = entitlement.levels.find((level) => level.ordinal === entitlement.defaultValue);
     return (
       <select value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Not granted (defaults to {defaultLevel ? defaultLevel.displayName : entitlement.defaultValue})</option>
         {entitlement.levels.map((level) => (
           <option key={level.ordinal} value={level.ordinal}>
             {level.displayName}
@@ -41,21 +36,11 @@ function renderValueInput(
       </select>
     );
   }
-  return (
-    <input
-      type="number"
-      value={value}
-      placeholder={`Not granted (defaults to ${entitlement.defaultValue})`}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  );
+  return <input type="number" value={value} onChange={(e) => onChange(e.target.value)} />;
 }
 
 /** The read-only rendering of one entitlement's grant value, shaped by its valueType. */
-function renderValueDisplay(entitlement: SubscriptionEntitlementDto, value: number | "") {
-  if (value === "") {
-    return <em>Not granted</em>;
-  }
+function renderValueDisplay(entitlement: SubscriptionEntitlementDto, value: number) {
   if (entitlement.valueType === "BOOLEAN") {
     return value === 1 ? "Yes" : "No";
   }
@@ -78,12 +63,24 @@ export function SubscriptionPlanGrantsTab() {
   const [grantsForPlan, setGrantsForPlan] = useState<SubscriptionPlanGrantDto[]>([]);
   const [baseline, setBaseline] = useState<DraftValues>(new Map());
   const [draft, setDraft] = useState<DraftValues>(new Map());
+  const [entitlementToAdd, setEntitlementToAdd] = useState<number | "">("");
   const [loadingGrants, setLoadingGrants] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createNewVersion, setCreateNewVersion] = useState(true);
 
   const selectedPlan = useMemo(() => plans.find((plan) => plan.id === selectedPlanId) ?? null, [plans, selectedPlanId]);
+
+  const grantedEntitlements = useMemo(() => {
+    return Array.from(draft.keys())
+      .map((id) => entitlements.find((e) => e.id === id))
+      .filter((e): e is SubscriptionEntitlementDto => e !== undefined)
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }, [draft, entitlements]);
+
+  const availableToAdd = useMemo(() => {
+    return entitlements.filter((e) => !draft.has(e.id)).sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }, [entitlements, draft]);
 
   async function loadPlansAndEntitlements() {
     setLoading(true);
@@ -109,12 +106,9 @@ export function SubscriptionPlanGrantsTab() {
     setLoadingGrants(true);
     setError(null);
     try {
-      // excludeDefaults=true: this view edits explicit grants only -- "not granted" (an empty
-      // draft entry) must round-trip to "no explicit grant", not to a synthesized default that
-      // handleSave would then persist as if it had been explicitly set.
       const [versionList, grantList] = await Promise.all([
         SubscriptionPlanRepository.getVersions(applicationId, planId),
-        SubscriptionPlanGrantRepository.list(applicationId, planId, true),
+        SubscriptionPlanGrantRepository.list(applicationId, planId),
       ]);
       setVersions(versionList);
       setGrantsForPlan(grantList);
@@ -129,6 +123,7 @@ export function SubscriptionPlanGrantsTab() {
       const values: DraftValues = version === "" ? new Map() : valuesForVersion(grantList, version);
       setBaseline(values);
       setDraft(new Map(values));
+      setEntitlementToAdd("");
     } finally {
       setLoadingGrants(false);
     }
@@ -143,6 +138,7 @@ export function SubscriptionPlanGrantsTab() {
       setGrantsForPlan([]);
       setBaseline(new Map());
       setDraft(new Map());
+      setEntitlementToAdd("");
       return;
     }
     void loadPlan(planId);
@@ -154,19 +150,35 @@ export function SubscriptionPlanGrantsTab() {
     const values = version === "" ? new Map() : valuesForVersion(grantsForPlan, version);
     setBaseline(values);
     setDraft(new Map(values));
+    setEntitlementToAdd("");
   }
 
   function handleValueChange(entitlementId: number, rawValue: string) {
+    const parsed = Number(rawValue);
+    if (rawValue === "" || Number.isNaN(parsed)) return;
     setDraft((previous) => {
       const next = new Map(previous);
-      if (rawValue === "") {
-        next.delete(entitlementId);
-      } else {
-        const parsed = Number(rawValue);
-        if (!Number.isNaN(parsed)) {
-          next.set(entitlementId, parsed);
-        }
-      }
+      next.set(entitlementId, parsed);
+      return next;
+    });
+  }
+
+  function handleAddEntitlement() {
+    if (entitlementToAdd === "") return;
+    const entitlement = entitlements.find((e) => e.id === entitlementToAdd);
+    if (!entitlement) return;
+    setDraft((previous) => {
+      const next = new Map(previous);
+      next.set(entitlement.id, entitlement.defaultValue);
+      return next;
+    });
+    setEntitlementToAdd("");
+  }
+
+  function handleRemoveEntitlement(entitlementId: number) {
+    setDraft((previous) => {
+      const next = new Map(previous);
+      next.delete(entitlementId);
       return next;
     });
   }
@@ -181,6 +193,7 @@ export function SubscriptionPlanGrantsTab() {
 
   function handleDiscard() {
     setDraft(new Map(baseline));
+    setEntitlementToAdd("");
     setError(null);
   }
 
@@ -191,7 +204,7 @@ export function SubscriptionPlanGrantsTab() {
     try {
       const items = Array.from(draft.entries()).map(([subscriptionEntitlementId, value]) => ({
         subscriptionEntitlementId,
-        value: value as number,
+        value,
       }));
       const updatedPlan = await SubscriptionPlanRepository.replaceGrants(applicationId, selectedPlanId, {
         items,
@@ -283,11 +296,12 @@ export function SubscriptionPlanGrantsTab() {
               <tr>
                 <th>Entitlement</th>
                 <th>Value</th>
+                {canEdit && <th></th>}
               </tr>
             </thead>
             <tbody>
-              {entitlements.map((entitlement) => {
-                const value = draft.get(entitlement.id) ?? "";
+              {grantedEntitlements.map((entitlement) => {
+                const value = draft.get(entitlement.id)!;
                 return (
                   <tr key={entitlement.id}>
                     <td>{entitlement.displayName}</td>
@@ -298,13 +312,46 @@ export function SubscriptionPlanGrantsTab() {
                         renderValueDisplay(entitlement, value)
                       )}
                     </td>
+                    {canEdit && (
+                      <td>
+                        <button type="button" onClick={() => handleRemoveEntitlement(entitlement.id)}>
+                          Remove
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
+              {grantedEntitlements.length === 0 && (
+                <tr>
+                  <td colSpan={canEdit ? 3 : 2}>
+                    <em>No entitlements granted on this version.</em>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
 
           <RoleGuard requireAdmin>
+            {availableToAdd.length > 0 && (
+              <div className="add-entitlement-row" style={{ marginTop: "1rem" }}>
+                <select
+                  value={entitlementToAdd}
+                  onChange={(e) => setEntitlementToAdd(e.target.value ? Number(e.target.value) : "")}
+                >
+                  <option value="">Add entitlement…</option>
+                  {availableToAdd.map((entitlement) => (
+                    <option key={entitlement.id} value={entitlement.id}>
+                      {entitlement.displayName}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" onClick={handleAddEntitlement} disabled={entitlementToAdd === ""}>
+                  Add
+                </button>
+              </div>
+            )}
+
             <div className="dialog-actions">
               <button type="button" onClick={handleDiscard} disabled={!isDirty || saving}>
                 Discard Changes

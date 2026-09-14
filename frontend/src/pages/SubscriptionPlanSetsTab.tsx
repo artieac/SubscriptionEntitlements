@@ -136,9 +136,8 @@ function PlanVersionGrantsModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId, planId]);
 
-  const grantByEntitlementId = new Map(
-    grants.filter((g) => g.subscriptionPlanVersion === version).map((g) => [g.subscriptionEntitlementId, g]),
-  );
+  const entitlementById = new Map(entitlements.map((e) => [e.id, e]));
+  const grantsForVersion = grants.filter((g) => g.subscriptionPlanVersion === version);
 
   return (
     <Modal title={`Grants for "${planName}" v${version}`} onClose={onClose}>
@@ -154,22 +153,18 @@ function PlanVersionGrantsModal({
             </tr>
           </thead>
           <tbody>
-            {entitlements.length === 0 ? (
+            {grantsForVersion.length === 0 ? (
               <tr>
-                <td colSpan={3}>No entitlements defined for this application.</td>
+                <td colSpan={3}>No entitlements granted in this version.</td>
               </tr>
             ) : (
-              entitlements.map((entitlement) => {
-                const grant = grantByEntitlementId.get(entitlement.id);
-                const value = grant ? grant.value : entitlement.defaultValue;
+              grantsForVersion.map((grant) => {
+                const entitlement = entitlementById.get(grant.subscriptionEntitlementId);
                 return (
-                  <tr key={entitlement.id}>
-                    <td>{entitlement.displayName}</td>
-                    <td>{ENTITLEMENT_TYPE_LABELS[entitlement.valueType]}</td>
-                    <td>
-                      {formatGrantValue(entitlement, value)}
-                      {(!grant || grant.defaulted) && <em> (defaulted, not explicitly set)</em>}
-                    </td>
+                  <tr key={grant.id}>
+                    <td>{entitlement?.displayName ?? grant.subscriptionEntitlementId}</td>
+                    <td>{entitlement ? ENTITLEMENT_TYPE_LABELS[entitlement.valueType] : ""}</td>
+                    <td>{entitlement ? formatGrantValue(entitlement, grant.value) : grant.value}</td>
                   </tr>
                 );
               })
