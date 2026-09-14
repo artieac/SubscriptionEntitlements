@@ -113,8 +113,21 @@ function SubscriptionEntitlementForm({
 
   function handleValueTypeChange(newValueType: EntitlementValueType) {
     setValueType(newValueType);
-    setDefaultValue(0);
+    if (newValueType === "ORDINAL") {
+      const firstOrdinal = levelRows.find((row) => row.ordinal !== "")?.ordinal;
+      setDefaultValue(typeof firstOrdinal === "number" ? firstOrdinal : 0);
+    } else {
+      setDefaultValue(0);
+    }
   }
+
+  useEffect(() => {
+    if (valueType !== "ORDINAL") return;
+    const validOrdinals = levelRows.filter((row) => row.ordinal !== "").map((row) => row.ordinal);
+    if (validOrdinals.length > 0 && !validOrdinals.includes(defaultValue)) {
+      setDefaultValue(validOrdinals[0] as number);
+    }
+  }, [levelRows, valueType, defaultValue]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
